@@ -3,33 +3,261 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rainbow Quest for Anna</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Pixel Art Rainbow Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+    </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="rainbow">
-            <div class="color red"></div>
-            <div class="color orange"></div>
-            <div class="color yellow"></div>
-            <div class="color green"></div>
-            <div class="color blue"></div>
-            <div class="color indigo"></div>
-            <div class="color violet"></div>
-        </div>
-        
-        <div class="game-area">
-            <div class="object red-flower" data-color="red"></div>
-            <div class="object orange-butterfly" data-color="orange"></div>
-            <div class="object yellow-sunflower" data-color="yellow"></div>
-            <div class="object green-tree" data-color="green"></div>
-            <div class="object blue-bird" data-color="blue"></div>
-            <div class="object indigo-star" data-color="indigo"></div>
-            <div class="object violet-rose" data-color="violet"></div>
-        </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        <div class="message-box" id="message">Click on objects to find colors for the rainbow!</div>
-    </div>
-    <script src="script.js"></script>
+        // Game constants
+        const GRAVITY = 0.5;
+        const JUMP_STRENGTH = -12;
+        const MOVE_SPEED = 5;
+
+        // Player
+        const player = {
+            x: 50,
+            y: 550,
+            width: 30,
+            height: 60,
+            velocityX: 0,
+            velocityY: 0,
+            isJumping: false,
+            direction: 1 // 1 for right, -1 for left
+        };
+
+        // Clouds (platforms)
+        const clouds = [
+            {x: 50, y: 500, width: 120, height: 40},
+            {x: 200, y: 400, width: 120, height: 40},
+            {x: 350, y: 300, width: 120, height: 40},
+            {x: 500, y: 200, width: 120, height: 40},
+            {x: 650, y: 100, width: 120, height: 40},
+            {x: 200, y: 150, width: 120, height: 40},
+            {x: 500, y: 350, width: 120, height: 40},
+        ];
+
+        // Emojis
+        const emojis = [
+            {x: 90, y: 470, emoji: '🔴', collected: false},
+            {x: 240, y: 370, emoji: '🟠', collected: false},
+            {x: 390, y: 270, emoji: '🟡', collected: false},
+            {x: 540, y: 170, emoji: '🟢', collected: false},
+            {x: 690, y: 70, emoji: '🔵', collected: false},
+            {x: 240, y: 120, emoji: '🟣', collected: false},
+        ];
+
+        // Rainbow
+        const rainbow = {
+            x: 350,
+            y: 50,
+            width: 200,
+            height: 100,
+            colors: ['#808080', '#808080', '#808080', '#808080', '#808080', '#808080']
+        };
+
+        // Game state
+        let gameWon = false;
+
+        // Keyboard state
+        const keys = {};
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        function update() {
+            if (gameWon) return;
+
+            // Player movement
+            player.velocityX = 0;
+            if (keys['ArrowLeft']) {
+                player.velocityX = -MOVE_SPEED;
+                player.direction = -1;
+            }
+            if (keys['ArrowRight']) {
+                player.velocityX = MOVE_SPEED;
+                player.direction = 1;
+            }
+            if (keys['ArrowUp'] && !player.isJumping) {
+                player.velocityY = JUMP_STRENGTH;
+                player.isJumping = true;
+            }
+
+            // Apply gravity and move player
+            player.velocityY += GRAVITY;
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Cloud (platform) collision
+            let onPlatform = false;
+            clouds.forEach(cloud => {
+                if (player.x < cloud.x + cloud.width &&
+                    player.x + player.width > cloud.x &&
+                    player.y + player.height > cloud.y &&
+                    player.y + player.height < cloud.y + cloud.height + player.velocityY) {
+                    player.y = cloud.y - player.height;
+                    player.velocityY = 0;
+                    player.isJumping = false;
+                    onPlatform = true;
+                }
+            });
+
+            // Ground collision
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+                player.velocityY = 0;
+                player.isJumping = false;
+            }
+
+            // Emoji collection
+            emojis.forEach((emoji, index) => {
+                if (!emoji.collected &&
+                    player.x < emoji.x + 20 &&
+                    player.x + player.width > emoji.x &&
+                    player.y < emoji.y + 20 &&
+                    player.y + player.height > emoji.y) {
+                    emoji.collected = true;
+                    rainbow.colors[index] = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'][index];
+                }
+            });
+
+            // Check win condition
+            if (emojis.every(emoji => emoji.collected)) {
+                gameWon = true;
+            }
+
+            // Screen boundaries
+            player.x = Math.max(0, Math.min(player.x, canvas.width - player.width));
+        }
+
+        function drawCloud(x, y, width, height) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            
+            // Base of the cloud
+            ctx.moveTo(x, y + height * 0.8);
+            ctx.quadraticCurveTo(x + width * 0.2, y + height * 1.2, x + width * 0.5, y + height * 0.8);
+            ctx.quadraticCurveTo(x + width * 0.8, y + height * 1.2, x + width, y + height * 0.8);
+            
+            // Top of the cloud
+            ctx.quadraticCurveTo(x + width * 1.1, y + height * 0.6, x + width * 0.8, y + height * 0.4);
+            ctx.quadraticCurveTo(x + width * 0.8, y, x + width * 0.5, y + height * 0.2);
+            ctx.quadraticCurveTo(x + width * 0.2, y, x + width * 0.2, y + height * 0.4);
+            ctx.quadraticCurveTo(x - width * 0.1, y + height * 0.6, x, y + height * 0.8);
+            
+            ctx.fill();
+
+            // Add some highlights
+            ctx.fillStyle = '#F0F0F0';
+            ctx.beginPath();
+            ctx.arc(x + width * 0.2, y + height * 0.3, height * 0.2, 0, Math.PI * 2);
+            ctx.arc(x + width * 0.5, y + height * 0.2, height * 0.3, 0, Math.PI * 2);
+            ctx.arc(x + width * 0.8, y + height * 0.3, height * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawGirl(x, y, width, height, direction) {
+            // Red dress
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(x + width * 0.2, y + height * 0.3, width * 0.6, height * 0.5);
+            
+            // White skin (head and arms)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(x + width * 0.2, y, width * 0.6, height * 0.3); // Head
+            ctx.fillRect(x + width * 0.1, y + height * 0.3, width * 0.2, height * 0.3); // Left arm
+            ctx.fillRect(x + width * 0.7, y + height * 0.3, width * 0.2, height * 0.3); // Right arm
+            
+            // Brown hair
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(x + width * 0.1, y, width * 0.8, height * 0.25); // Top of hair
+            ctx.fillRect(x + width * 0.1, y + height * 0.2, width * 0.2, height * 0.2); // Left side
+            ctx.fillRect(x + width * 0.7, y + height * 0.2, width * 0.2, height * 0.2); // Right side
+            
+            // Blue eyes
+            ctx.fillStyle = '#0000FF';
+            ctx.fillRect(x + width * (direction === 1 ? 0.3 : 0.5), y + height * 0.15, width * 0.1, height * 0.05);
+            ctx.fillRect(x + width * (direction === 1 ? 0.5 : 0.3), y + height * 0.15, width * 0.1, height * 0.05);
+            
+            // Legs
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(x + width * 0.3, y + height * 0.8, width * 0.15, height * 0.2);
+            ctx.fillRect(x + width * 0.55, y + height * 0.8, width * 0.15, height * 0.2);
+        }
+
+        function drawRainbow(x, y, width, height, colors) {
+            const centerX = x + width / 2;
+            const bottomY = y + height;
+            const radius = width / 2;
+            
+            colors.forEach((color, index) => {
+                const startAngle = Math.PI;
+                const endAngle = 0;
+                const arcWidth = radius / colors.length;
+                const currentRadius = radius - (index * arcWidth);
+                
+                ctx.beginPath();
+                ctx.arc(centerX, bottomY, currentRadius, startAngle, endAngle);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = arcWidth;
+                ctx.stroke();
+            });
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw clouds (platforms)
+            clouds.forEach(cloud => {
+                drawCloud(cloud.x, cloud.y, cloud.width, cloud.height);
+            });
+
+            // Draw emojis
+            emojis.forEach(emoji => {
+                if (!emoji.collected) {
+                    ctx.font = '20px Arial';
+                    ctx.fillText(emoji.emoji, emoji.x, emoji.y);
+                }
+            });
+
+            // Draw rainbow
+            drawRainbow(rainbow.x, rainbow.y, rainbow.width, rainbow.height, rainbow.colors);
+
+            // Draw player
+            drawGirl(player.x, player.y, player.width, player.height, player.direction);
+
+            // Draw win message
+            if (gameWon) {
+                ctx.fillStyle = 'black';
+                ctx.font = '40px Arial';
+                ctx.fillText('You won!', canvas.width / 2 - 70, canvas.height / 2);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
 </body>
 </html>
